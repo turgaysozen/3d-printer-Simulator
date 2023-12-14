@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>3D Printer Simulator</title>
+    <style>
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .header, .printer-info {
+            text-align: center;
+        }
+
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .progress-bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-bar {
+            width: 270px;
+            height: 25px;
+            background-color: #ccc;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .fill {
+            height: 100%;
+            background-color: #4CAF50;
+        }
+
+        .label {
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .label span {
+            margin-right: 5px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            width: 350px;
+            font-size: 24px;
+        }
+
+        .control-button {
+            padding: 8px;
+            font-size: 14px;
+            background-color: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1; /* Adjusted flex property */
+            margin: 0 5px; /* Adjusted margin */
+        }
+
+        .control-button:hover {
+            background-color: #45a049;
+        }
+
+        #printerData {
+            background-color: #f2f2f2;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: left;
+            width: 250px;
+            height: 80px;
+            font-size: 17px;
+        }
+
+        .grey-button {
+            background-color: #cccccc;
+            color: #666;
+            width: 100px;
+            height: 20px;
+            margin-top:20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>3D Printer Simulator</h1>
+        </div>
+        <div class="printer-info">
+            <h2>Printer Information</h2>
+            <p id="printerData">Waiting for data...</p>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar-container">
+                <div class="label">
+                    <span>Temperature</span>
+                    <span id="temperatureValue">0 °C</span>
+                </div>
+                <div class="progress-bar" id="temperatureProgress">
+                    <div class="fill" id="temperatureFill"></div>
+                </div>
+
+                <div class="label">
+                    <span>Fan Speed</span>
+                    <span id="fanSpeedValue">0 %</span>
+                </div>
+                <div class="progress-bar" id="fanSpeedProgress">
+                    <div class="fill" id="fanSpeedFill"></div>
+                </div>
+
+                <div class="label">
+                    <span>Print Progress</span>
+                    <span id="printProgressValue">0 %</span>
+                </div>
+                <div class="progress-bar" id="printProgress">
+                    <div class="fill" id="printProgressFill"></div>
+                </div>
+
+                <div class="label">
+                    <span>Left Filament</span>
+                    <span id="leftFilamentValue">0 %</span>
+                </div>
+                <div class="progress-bar" id="leftFilamentProgress">
+                    <div class="fill" id="leftFilamentFill"></div>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="control-button" onclick="sendControlCommand('pause')">Pause</button>
+            <button class="control-button" onclick="sendControlCommand('continue')">Continue</button>
+            <button class="control-button" onclick="sendControlCommand('stop')">Stop</button>
+            <button class="control-button" onclick="sendControlCommand('start')">Start</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.3/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const socket = io('ws://localhost:5000');
+
+        const controls = document.getElementsByClassName('control-button');
+
+        const pauseButton = controls[0];
+        const continueButton = controls[1];
+        const stopButton = controls[2];
+        const startButton = controls[3];
+
+        socket.on('printer_data', (data) => {
+            const printerDataElement = document.getElementById('printerData');
+            const temperatureFill = document.getElementById('temperatureFill');
+            const fanSpeedFill = document.getElementById('fanSpeedFill');
+            const printProgressFill = document.getElementById('printProgressFill');
+            const filamentUsageFill = document.getElementById('filamentUsageFill');
+            const leftFilamentFill = document.getElementById('leftFilamentFill');
+            const temperatureValue = document.getElementById('temperatureValue');
+            const fanSpeedValue = document.getElementById('fanSpeedValue');
+            const printProgressValue = document.getElementById('printProgressValue');
+            const leftFilamentValue = document.getElementById('leftFilamentValue');
+
+            const { temperature, fan_speed, print_progress, filament_usage, left_filament, printer_name, status, print_time } = JSON.parse(data);
+
+            updateButtonStates(status);
+
+            printerDataElement.innerHTML = `<strong>Printer Name:</strong> ${printer_name}<br><strong>Status:</strong> ${status}<br><strong>Filament Usage:</strong> ${filament_usage}g / 1000g<br><strong>Printing Time:</strong> ${print_time}`;
+
+            updateFillPercentage(temperatureFill, temperature, 100);
+            updateFillPercentage(fanSpeedFill, fan_speed, 100);
+            updateFillPercentage(printProgressFill, print_progress, 100);
+            updateFillPercentage(leftFilamentFill, left_filament, 100);
+
+            temperatureValue.innerText = `${temperature.toFixed(2)} °C`;
+            fanSpeedValue.innerText = `${fan_speed.toFixed(2)} %`;
+            printProgressValue.innerText = `${print_progress.toFixed(2)} %`;
+            leftFilamentValue.innerText = `${left_filament.toFixed(2)} %`;
+
+            if (print_progress >= 100) {
+                sendControlCommand('stop');
+                document.getElementById('printerData').style.backgroundColor = '#A8E4A0';
+                printerDataElement.innerHTML = `<strong>Printer Name:</strong> ${printer_name}<br><strong>Status:</strong> Done!<br><strong>Filament Usage:</strong> ${filament_usage}g / 1000g<br><strong>Printing Time:</strong> ${print_time}`;
+            }
+        });
+
+        function updateFillPercentage(element, value, maxValue) {
+            const fillPercentage = (value / maxValue) * 100;
+            element.style.width = `${fillPercentage}%`;
+        }
+
+        function sendControlCommand(command) {
+            socket.emit('control_printer', { command });
+        }
+
+        function increaseTimerSpeed() {
+            socket.emit('increase_timer_speed', { factor: 10 });
+        }
+
+        function updateButtonStates(status) {
+            pauseButton.style.opacity = '1';
+            continueButton.style.opacity = '1';
+            stopButton.style.opacity = '1';
+            startButton.style.opacity = '1';
+            
+            pauseButton.style.pointerEvents = 'auto';
+            continueButton.style.pointerEvents = 'auto';
+            stopButton.style.pointerEvents = 'auto';
+            startButton.style.pointerEvents = 'auto';
+
+            const printerDataElement = document.getElementById('printerData');
+        
+            if (status === 'Paused') {
+                continueButton.style.opacity = '1';
+                pauseButton.style.opacity = '0.5';
+                startButton.style.opacity = '0.5';
+                stopButton.style.opacity = '0.5';
+                
+                pauseButton.style.pointerEvents = 'none';
+                startButton.style.pointerEvents = 'none';
+                stopButton.style.pointerEvents = 'none';
+
+                printerDataElement.style.backgroundColor = '#FFA500';
+            } else if (status === 'Printing') {
+                startButton.style.opacity = '0.5';
+                continueButton.style.opacity = '0.5';
+
+                startButton.style.pointerEvents = 'none';
+                continueButton.style.pointerEvents = 'none';
+
+                printerDataElement.style.backgroundColor = '#89CFF0';
+            } else if (status === 'Stopped') {
+                startButton.style.opacity = '1';
+                startButton.innerText = 'Restart';
+                pauseButton.style.opacity = '0.5';
+                continueButton.style.opacity = '0.5';
+                stopButton.style.opacity = '0.5';
+
+                pauseButton.style.pointerEvents = 'none';
+                continueButton.style.pointerEvents = 'none';
+                stopButton.style.pointerEvents = 'none';
+
+                printerDataElement.style.backgroundColor = '#FF3800';
+            }
+        }
+        
+    </script>
+</body>
+</html>
