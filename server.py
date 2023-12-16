@@ -1,11 +1,14 @@
 import json
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
+from flask_cors import CORS
+
 
 from printer import Printer
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 socketio = SocketIO(app)
+socketio.init_app(app, cors_allowed_origins="*")
 
 printer = Printer()
 
@@ -14,7 +17,7 @@ connected_clients = set()
 timer_running = False
 
 
-@app.route('/')
+@app.route('/3d-printer-simulation')
 def index():
     return render_template('index.html')
 
@@ -87,4 +90,4 @@ def send_one_time_status_command():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000)
