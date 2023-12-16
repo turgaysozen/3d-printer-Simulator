@@ -7,7 +7,7 @@ class Printer:
     def __init__(self):
         self.printer_name = f'Printer_{randint(1, 10)}'
         self.temperature = randint(20, 80)  # °C
-        self.status = 'Printing'
+        self.status = 'Idle'
         self.fan_speed = randint(20, 70)  # percent
         self.print_progress = 0
         self.filament_usage = 0  # gram
@@ -18,7 +18,7 @@ class Printer:
         self.print_time = 0
 
     def simulate_changes(self):
-        if self.is_stopped:
+        if self.is_stopped or self.is_paused:
             return
 
         if not self.is_paused:
@@ -30,6 +30,7 @@ class Printer:
             self.filament_usage += uniform(0.3, 0.8)
             self.left_filament = max(0, self.initial_filament - self.filament_usage)
             self.print_time += 1 
+            self.status = 'Printing'
 
     def pause_printer(self):
         if not self.is_paused and not self.is_stopped:
@@ -52,13 +53,32 @@ class Printer:
 
     def start_printer(self):
         if self.is_stopped:
-            self.__init__()
+            self.reset_printer() # self.__init__()
             self.is_stopped = False
+            self.status = 'Printing'
             print("Printer restarted and reset")
+            
+    def is_printing_complete(self):
+        return self.print_progress >= 100
+
+    def mark_completed(self):
+        self.status = 'Completed'
+        self.is_stopped = True
+            
+    def reset_printer(self):
+        self.temperature = randint(20, 80)
+        self.status = 'Idle'
+        self.fan_speed = randint(20, 70)
+        self.print_progress = 0
+        self.filament_usage = 0
+        self.is_paused = False
+        self.is_stopped = False
+        self.left_filament = self.initial_filament - self.filament_usage
+        self.print_time = 0
 
     def get_printer_data(self):
         left_filament_percentage = (self.left_filament / self.initial_filament) * 100
-        
+
         print_time_seconds = self.print_time
         print_time_minutes = print_time_seconds // 60
         print_time_seconds %= 60

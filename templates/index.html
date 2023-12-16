@@ -149,21 +149,32 @@
             <button class="control-button" onclick="sendControlCommand('pause')">Pause</button>
             <button class="control-button" onclick="sendControlCommand('continue')">Continue</button>
             <button class="control-button" onclick="sendControlCommand('stop')">Stop</button>
-            <button class="control-button" onclick="sendControlCommand('start')">Start</button>
+            <button class="control-button" onclick="sendControlCommand('start')">Print</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.3/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-        const socket = io('ws://localhost:5000');
+        const socket = io('http://localhost:5000', { reconnection: true });
 
         const controls = document.getElementsByClassName('control-button');
-
         const pauseButton = controls[0];
         const continueButton = controls[1];
         const stopButton = controls[2];
         const startButton = controls[3];
+
+        socket.on('connect', () => {
+            console.log('Connected from the server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from the server');
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log(`Reconnected to the server on attempt ${attemptNumber}`);
+        });
 
         socket.on('printer_data', (data) => {
             const printerDataElement = document.getElementById('printerData');
@@ -179,6 +190,20 @@
 
             const { temperature, fan_speed, print_progress, filament_usage, left_filament, printer_name, status, print_time } = JSON.parse(data);
 
+            if (status === 'Idle') {
+                printerDataElement.innerText = 'Printer is Idle'
+                pauseButton.style.opacity = '0.5';
+                continueButton.style.opacity = '0.5';
+                stopButton.style.opacity = '0.5';
+
+                pauseButton.style.pointerEvents = 'none';
+                continueButton.style.pointerEvents = 'none';
+                stopButton.style.pointerEvents = 'none';
+
+                printerDataElement.innerHTML = `<strong>Printer Name:</strong> ${printer_name}<br><strong>Status:</strong> ${status}<br><strong>Filament Usage:</strong> 0g / 1000g<br><strong>Printing Time:</strong> 0`;
+                return
+            }
+
             updateButtonStates(status);
 
             printerDataElement.innerHTML = `<strong>Printer Name:</strong> ${printer_name}<br><strong>Status:</strong> ${status}<br><strong>Filament Usage:</strong> ${filament_usage}g / 1000g<br><strong>Printing Time:</strong> ${print_time}`;
@@ -193,8 +218,8 @@
             printProgressValue.innerText = `${print_progress.toFixed(2)} %`;
             leftFilamentValue.innerText = `${left_filament.toFixed(2)} %`;
 
-            if (print_progress >= 100) {
-                sendControlCommand('stop');
+            if (print_progress >= 100 && status !== 'Completed') {
+                sendControlCommand('finish');
                 document.getElementById('printerData').style.backgroundColor = '#A8E4A0';
                 printerDataElement.innerHTML = `<strong>Printer Name:</strong> ${printer_name}<br><strong>Status:</strong> Done!<br><strong>Filament Usage:</strong> ${filament_usage}g / 1000g<br><strong>Printing Time:</strong> ${print_time}`;
             }
@@ -207,6 +232,7 @@
 
         function sendControlCommand(command) {
             socket.emit('control_printer', { command });
+            updateButtonStates('Stopped')
         }
 
         function increaseTimerSpeed() {
@@ -247,7 +273,7 @@
                 printerDataElement.style.backgroundColor = '#89CFF0';
             } else if (status === 'Stopped') {
                 startButton.style.opacity = '1';
-                startButton.innerText = 'Restart';
+                startButton.innerText = 'Print';
                 pauseButton.style.opacity = '0.5';
                 continueButton.style.opacity = '0.5';
                 stopButton.style.opacity = '0.5';
@@ -257,6 +283,14 @@
                 stopButton.style.pointerEvents = 'none';
 
                 printerDataElement.style.backgroundColor = '#FF3800';
+            } else if (status === 'Completed') {
+                pauseButton.style.opacity = '0.5';
+                continueButton.style.opacity = '0.5';
+                stopButton.style.opacity = '0.5';
+
+                pauseButton.style.pointerEvents = 'none';
+                continueButton.style.pointerEvents = 'none';
+                stopButton.style.pointerEvents = 'none';
             }
         }
         
