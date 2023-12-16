@@ -232,7 +232,6 @@
 
         function sendControlCommand(command) {
             socket.emit('control_printer', { command });
-            updateButtonStates('Stopped')
         }
 
         function increaseTimerSpeed() {
