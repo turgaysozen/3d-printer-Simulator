@@ -1,7 +1,7 @@
+import threading
 import json
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
-from flask_cors import CORS
 
 
 from printer import Printer
@@ -15,6 +15,7 @@ printer = Printer()
 connected_clients = set()
 
 timer_running = False
+lock = threading.Lock()
 
 
 @app.route('/3d-printer-simulation')
@@ -75,10 +76,11 @@ def control_printer(data):
 def send_printer_data():
     """ Send 3d printer realtime data by 1 sec. interval """
     while not printer.is_stopped and timer_running:
-        printer.simulate_changes()
-        printer_data = json.dumps(printer.get_printer_data())
-        socketio.emit('printer_data', printer_data)
-        socketio.sleep(1)
+        with lock:
+            printer.simulate_changes()
+            printer_data = json.dumps(printer.get_printer_data())
+            socketio.emit('printer_data', printer_data)
+            socketio.sleep(1)
 
 
 def send_one_time_status_command():
